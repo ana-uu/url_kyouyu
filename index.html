@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おすすめメモ</title>
+<!-- ホーム画面に追加したときのアイコンと名前 -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="おすすめメモ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f3ee">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  html, body { margin: 0; height: 100%; background: #f5f3ee; }
+  body { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+  iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .msg { font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+         color: #23221f; padding: 24px; }
+</style>
+</head>
+<body>
+<script>
+  // ↓ Apps Script の「ウェブアプリの URL」（https://script.google.com/macros/s/……/exec）に書き換える
+  const APP_URL = 'https://script.google.com/macros/s/AKfycbxfuVhHy8FIZW01aofcG4JCVb6G80896Sx-gBFMkSmt4f6lUo2inlNVRC-b_qp8ybK2/exec';
+
+  // ---------------------------------------------------------------
+  // アプリ（Apps Script）を全画面で表示し、ログイン情報をこのページに預かる。
+  // Apps Script の画面は「別のサイト」扱いで、iPhone の Safari などでは保存した情報が消えやすいため、
+  // 自分のサイトであるこのページの localStorage に入れておき、開くたびに渡す。
+  const KEY = 'osusume_memo_session';
+  const APP = 'osusume-memo';
+
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec/.test(APP_URL)) {
+    document.body.innerHTML = '<p class="msg">index.html の APP_URL に、Apps Script のウェブアプリの URL を書いてください。</p>';
+  } else {
+    const frame = document.createElement('iframe');
+    frame.src = APP_URL;
+    frame.title = 'おすすめメモ';
+    frame.allow = 'clipboard-read; clipboard-write';
+    document.body.appendChild(frame);
+
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
+    window.addEventListener('message', (ev) => {
+      // Apps Script の画面（*.googleusercontent.com）で、このページの中にあるものからだけ受け付ける
+      if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(ev.origin)) return;
+      let inside = false;
+      try { inside = !!ev.source && ev.source.top === window; } catch (e) { inside = false; }
+      const d = ev.data;
+      if (!inside || !d || d.app !== APP) return;
+
+      if (d.type === 'get') {
+        const s = load();
+        ev.source.postMessage({ app: APP, type: 'session', token: s ? s.token : '', user: s ? s.user : '' }, ev.origin);
+      } else if (d.type === 'save' && typeof d.token === 'string' && d.token) {
+        try { localStorage.setItem(KEY, JSON.stringify({ token: d.token, user: String(d.user || '') })); } catch (e) { /* 無視 */ }
+      } else if (d.type === 'clear') {
+        try { localStorage.removeItem(KEY); } catch (e) { /* 無視 */ }
+      }
+    });
+  }
+</script>
+</body>
+</html>
